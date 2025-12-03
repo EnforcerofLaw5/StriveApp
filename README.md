@@ -8,5 +8,6 @@
     - Navigate to CSCI338FinalProject.Server/web-portal/
     - Enter `ng serve` to build and serve the application
     - Open the link given in the command prompt window
+ 
+- Suggest button does not work yet
   
-- All data that is returned is in JSON format
