@@ -1,7 +1,7 @@
 # Strive
 
 - Running the program
-    - Open CSCI338FinalProject.Server folder in a C# IDE such as Visual Studio or Visual Studio Code
+    - Open CSCI338FinalProject.Server folder in a C# IDE such as Visual Studio 
     - Build and run the program
     - Navigate to command line
     - Enter `npm install` to install the Node Package Manager
