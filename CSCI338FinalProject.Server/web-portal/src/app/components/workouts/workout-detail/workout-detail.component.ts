@@ -1,6 +1,6 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { WorkoutService } from '../../../services/workout.service';
 import { Workout } from '../../../entities';
 import { Exercise } from '../../../entities';
@@ -26,6 +26,7 @@ export class WorkoutDetailComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private workoutService: WorkoutService,
     private cdr: ChangeDetectorRef,
     private suggestionService: SuggestionService,
