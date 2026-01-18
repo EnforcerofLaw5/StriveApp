@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { Workout } from '../entities';
+import { Workout, Exercise } from '../entities';
 
 @Injectable({ providedIn: 'root' })
 export class WorkoutService {
@@ -18,11 +17,11 @@ export class WorkoutService {
   }
 
   create = (workout: Workout) => {
-    return this.http.post<Workout[]>(this.baseUrl, workout);
+    return this.http.post<Workout>(`${this.baseUrl}`, workout);
   }
 
-  update = (id: number, workout: Workout) => {
-    return this.http.put<Workout>(`${this.baseUrl}/${id}`, workout);
+  update = (workout: Workout) => {
+    return this.http.put<Workout>(`${this.baseUrl}/${workout.id}`, workout);
   }
 
   delete = (id: number) => {

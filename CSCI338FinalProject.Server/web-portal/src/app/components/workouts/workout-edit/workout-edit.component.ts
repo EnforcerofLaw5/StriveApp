@@ -1,97 +1,119 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { FormsModule } from '@angular/forms';
-import { WorkoutService } from '../../../services/workout.service';
-import { Workout, Exercise } from '../../../entities';
+import { Component, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute, RouterModule, Router } from '@angular/router';
+import { WorkoutStore } from '@app/stores/workout.store';
+import { ExerciseStore } from '@app/stores/exercise.store';
+import { UserStore } from '@app/stores/user.store';
 import { AddExerciseComponent } from '../add-exercise/add-exercise.component/add-exercise.component';
-import { HttpClient } from '@angular/common/http';
-import { ExerciseApiService } from '../../../services/exercise-api.service';
+import { FormGroup, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
+import { MobxAngularModule } from "mobx-angular";
+import { when } from 'mobx';
+import { Exercise } from '@app/entities';
 
 @Component({
   selector: 'app-workout-edit',
   standalone: true,
   imports: [
-    CommonModule,
-    FormsModule,
     RouterModule,
-    AddExerciseComponent
+    AddExerciseComponent,
+    ReactiveFormsModule,
+    MobxAngularModule
   ],
   templateUrl: './workout-edit.html'
 })
 export class WorkoutEditComponent implements OnInit {
 
+  @ViewChild(AddExerciseComponent) addExerciseComponent: AddExerciseComponent;
   workoutId!: number;
-  exercises: Exercise[] = [];
-  selectedExercise: Exercise | null = null;
-  apiResults: Exercise[] = [];
-  searchQuery: string = '';
-
   isEdit = false;
-  protected workout: Workout = { id: 0, name: '', type: '', date: new Date(), user: { id: 0, name: '', age: 0, weight: 0, goal: '', workouts: [] }, userID: 0, notes: '', workoutExercises: [] };
+  form!: FormGroup;
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router,
-    private workoutService: WorkoutService,
-    private cdr: ChangeDetectorRef,
-    private http: HttpClient,
-    private exerciseApi: ExerciseApiService
+    protected workoutStore: WorkoutStore,
+    private exerciseStore: ExerciseStore,
+    private userStore: UserStore,
+    private router: Router
   ) { }
 
   ngOnInit(): void {
-    this.exerciseApi.getExercises().subscribe(data => {
-    this.exercises = data.map(x => ({
-    id: 0,
-    name: x.name,
-    primaryMuscle: x.primaryMuscle,
-    category: x.category
-  }));
-});
+    this.userStore.getUserById(1); // For demo purposes, load user with ID 1
+
+    this.form = new FormGroup({
+      name: new FormControl('', Validators.required),
+      type: new FormControl('', Validators.required),
+      date: new FormControl('', Validators.required),
+      notes: new FormControl('')
+    });
 
     const param = this.route.snapshot.paramMap.get('id');
 
     if (param) {
       this.isEdit = true;
-      const id = Number(param);
+      this.workoutId = Number(param);
 
-      this.workoutService.get(id).subscribe(w => {
-        this.workout = w;
-        this.cdr.detectChanges();
-      });
+      this.workoutStore.getWorkoutById(this.workoutId);
+
+      when(() => this.workoutStore.inprogress == false, () => {
+        const w = this.workoutStore.selectedWorkout;
+        if (w) {
+          this.form.patchValue({ name: w.name });
+          this.form.patchValue({ type: w.type });
+          this.form.patchValue({ date: new Date(w.date).toISOString().substring(0, 10) });
+          this.form.patchValue({ notes: w.notes });
+        }
+      })
+    }
+  }
+
+  saveWorkout() {
+      const result = Object.assign({}, this.form.value);
+    if (this.workoutStore.selectedWorkout == null) {
+      // New Workout
+      this.workoutStore.selectedWorkout = {
+        id: 0,
+        name: result.name,
+        type: result.type,
+        date: new Date(result.date),
+        notes: result.notes,
+        userID: this.userStore.currentUser ? this.userStore.currentUser.id : 1,
+        // user: this.userStore.currentUser!,
+        exercises: []
+      };
+    }
+    else if (this.workoutStore.selectedWorkout) {
+      // Update existing workout
+      this.workoutStore.selectedWorkout.name = result.name;
+      this.workoutStore.selectedWorkout.type = result.type;
+      this.workoutStore.selectedWorkout.date = new Date(result.date);
+      this.workoutStore.selectedWorkout.notes = result.notes;
+      this.workoutStore.selectedWorkout.user = this.userStore.currentUser;
+    }
+    if (this.isEdit) {
+      this.workoutStore.update(this.workoutStore.selectedWorkout);
+    } else {
+      this.workoutStore.create(this.workoutStore.selectedWorkout);
     }
   }
 
   save() {
-    if (this.isEdit) {
-      this.workoutService.update(this.workout.id, this.workout)
-        .subscribe(() => this.router.navigate(['/workouts', this.workout.id]));
-    } else {
-      this.workoutService.create(this.workout)
-        .subscribe(() => this.router.navigate(['/workouts']));
-    }
+    if (this.form.invalid) return;
+    this.saveWorkout();
+    when(() => this.workoutStore.inprogress == false, () => {
+      this.router.navigate(['/workouts'])
+    })
   }
-
-  searchExercises() {
-  const q = this.searchQuery.trim();
-  if (!q) {
-    this.apiResults = [];
-    return;
-  }
-
-  this.exerciseApi.searchExercises(q).subscribe(res => {
-    this.apiResults = res.map(x => ({
-      id: 0,
-      name: x.name,
-      primaryMuscle: x.primaryMuscle,
-      category: x.category
-    }));
-  });
-}
 
   removeExercise(exerciseId: number) {
-    this.http.delete(`https://localhost:7114/api/workoutexercise/${exerciseId}`).subscribe(() => {
-      this.workout.workoutExercises = this.workout.workoutExercises.filter(x => x.id !== exerciseId);
-    })
+    this.exerciseStore.delete(exerciseId);
+  }
+
+  saveExercise(exercise: Exercise) {
+    if (this.workoutStore.selectedWorkout == null) {
+      this.saveWorkout();
+      when(() => this.workoutStore.inprogress == false, () => {
+        this.exerciseStore.selectedExercise.workout = this.workoutStore.selectedWorkout;
+        this.exerciseStore.create(exercise);
+      })
+    }
   }
 }

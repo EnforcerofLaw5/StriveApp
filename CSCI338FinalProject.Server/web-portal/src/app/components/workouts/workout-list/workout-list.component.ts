@@ -1,37 +1,31 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { WorkoutService } from '../../../services/workout.service';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { WorkoutStore } from '@app/stores/workout.store';
 import { RouterModule } from '@angular/router';
-import { CommonModule } from '@angular/common';
-import { Workout } from '../../../entities';
+import { Workout } from '@app/entities';
+import { MobxAngularModule } from 'mobx-angular';
 
 @Component({
   selector: 'app-workout-list',
   imports: [
-    RouterModule,
-    CommonModule
-  ],
-  templateUrl: './workout-list.component.html'
+    RouterModule, MobxAngularModule
+],
+  templateUrl: './workout-list.component.html',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class WorkoutListComponent implements OnInit {
   workouts: Workout[] = [];
 
-  constructor(private workoutService: WorkoutService, private cdr: ChangeDetectorRef) { }
+  constructor(private workoutStore: WorkoutStore) { }
 
   ngOnInit(): void {
     this.load();
   }
 
   load(): void {
-    this.workoutService.getAll().subscribe({
-      next: data => {
-        this.workouts = data;
-        this.cdr.detectChanges();
-      },
-      error: err => console.error(err)
-    });
+    this.workoutStore.getAllWorkouts();
   }
 
   deleteWorkout(id: number): void {
-    this.workoutService.delete(id).subscribe(() => this.load());
+    this.workoutStore.deleteWorkout(id);
   }
 }

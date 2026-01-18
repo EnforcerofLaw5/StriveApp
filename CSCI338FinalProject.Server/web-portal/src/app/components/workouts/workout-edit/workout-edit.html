@@ -1,31 +1,31 @@
-<div class="container">
+<div *mobxAutorun class="container">
 <h2>{{ isEdit ? 'Edit Workout' : 'New Workout' }}</h2>
 
-<form (ngSubmit)="save()">
+<form [formGroup]="form">
 
   <div>
-    <label>Name:</label>
-    <input type="name" [(ngModel)]="workout.name" name="name" required>
+    <label for="name">Name:</label>
+    <input id="name" type="text" formControlName="name" required>
   </div>
 
   <div>
-    <label>Type:</label>
-    <input type="type" [(ngModel)]="workout.type" name="type" required>
+    <label for="type">Type:</label>
+    <input id="type" type="text" formControlName="type" required>
   </div>
   
   <div>
-    <label>Date:</label>
-    <input type="date" [(ngModel)]="workout.date" name="date" required>
+    <label for="date">Date:</label>
+    <input id="date" type="date" formControlName="date" required>
   </div>
 
   <div>
-    <label>Notes:</label>
-    <textarea [(ngModel)]="workout.notes" name="notes"></textarea>
+    <label for="notes">Notes:</label>
+    <textarea id="notes" formControlName="notes"></textarea>
   </div>
 
-  <add-exercise-form [workout]="workout"></add-exercise-form>
+  <add-exercise-form (saveEvent)="saveExercise($event)"></add-exercise-form>
 
-  <button type="submit" class="btn btn-success mt">
+  <button type="submit" class="btn btn-success mt" [disabled]="form.invalid" (click)="save()">
     {{ isEdit ? 'Update' : 'Create' }}
   </button>
 

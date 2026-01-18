@@ -1,116 +1,95 @@
-import { Component, Input, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { WorkoutExerciseService } from '../../../../services/workout-exercise.service';
-import { HttpClient } from '@angular/common/http';
-import { ExerciseApiService } from '../../../../services/exercise-api.service';
-import { WorkoutService } from '../../../../services/workout.service';
-import { Exercise, Workout, WorkoutExercise } from '../../../../entities';
+import { Component, Input, ChangeDetectorRef, OnInit, ChangeDetectionStrategy, Output, EventEmitter } from '@angular/core';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { ActivatedRoute } from '@angular/router';
+import { Exercise, Workout } from '@app/entities';
+import { ExerciseApiService } from '@app/services/exercise-api.service';
+import { WorkoutStore } from '@app/stores/workout.store';
+import { FormGroup, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
+import { MobxAngularModule } from 'mobx-angular';
+import { ExerciseStore } from '@app/stores/exercise.store';
+import { when } from 'mobx';
 
 
 @Component({
   selector: 'add-exercise-form',
   standalone: true,
-  imports: [CommonModule, FormsModule],
   templateUrl: './add-exercise.component.html',
   styleUrl: './add-exercise.component.css',
+  imports: [ReactiveFormsModule, MobxAngularModule],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
+export class AddExerciseComponent implements OnInit {
+  @Output() saveEvent = new EventEmitter<Exercise>();
 
-export class AddExerciseComponent {
-  @Input() workout!: Workout;
-
-  exerciseSearch!: string;
+  exerciseSearch = '';
   searchTerm = new Subject<string>();
-  exercises: Exercise[] = [];
   apiResults: Exercise[] = [];
-  selectedExercise: Exercise | null = null;
-  form: WorkoutExercise = {
-    workoutId: 0,
-    id: -1,
-    reps: 0,
-    rpe: 0,
-    exerciseId: 0,
-    weight: 0,
-    sets: 0,
-    repsCompleted: 0,
-    exercise: { id: -1, name: '', primaryMuscle: '', category: '' }
-
-  };
+  form!: FormGroup;
 
   constructor(
-    private weService: WorkoutExerciseService,
-    private http: HttpClient,
     private exerciseApi: ExerciseApiService,
+    private workoutStore: WorkoutStore,
+    protected exersiceStore: ExerciseStore,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
-    private workoutService: WorkoutService
   ) { }
 
   ngOnInit(): void {
+    this.form = new FormGroup({
+      sets: new FormControl(3, Validators.required),
+      name: new FormControl('',  Validators.required),
+      primaryMuscle: new FormControl('', Validators.required),
+      category: new FormControl('', Validators.required)
+    });
     const param = this.route.snapshot.paramMap.get('id');
     if (param) {
       const id = Number(param);
-      this.workoutService.get(id).subscribe(w => {
-        this.workout = w;
-        this.cdr.detectChanges();
-      })
+      this.workoutStore.getWorkoutById(id);
     }
 
+    when(() => this.exersiceStore.inprogress == false, () => {
+      if (this.exersiceStore.selectedExercise != null) {
+        this.form.patchValue({ sets: this.exersiceStore.selectedExercise.exerciseSets });
+        this.form.patchValue({ name: this.exersiceStore.selectedExercise.name });
+        this.form.patchValue({  category: this.exersiceStore.selectedExercise.category});
+        this.form.patchValue({ primaryMuscle: this.exersiceStore.selectedExercise.primaryMuscle });
+      }
+    })
+
     this.searchTerm.pipe(
-      debounceTime(300),          // wait 300ms after the last keystroke
-      distinctUntilChanged(),     // ignore same consecutive values
+      debounceTime(300),
+      distinctUntilChanged(),
       switchMap(term => this.exerciseApi.searchExercises(term))
     ).subscribe(results => {
-      this.apiResults = results.map(x => ({
-        id: x.id || 0,
-        name: x.name,
-        primaryMuscle: x.primaryMuscle,
-        category: x.category
-      }));
-      this.cdr.detectChanges();
-    });
-  }
-
-  save() {
-    this.form.workoutId = this.workout.id;
-    this.form.exercise.primaryMuscle = this.selectedExercise?.primaryMuscle || '';
-    this.form.exercise.category = this.selectedExercise?.category || '';
-    this.form.exercise.name = this.selectedExercise?.name || '';
-    this.weService.addToWorkout(this.workout.id, this.form)
-      .subscribe(() => {
-        window.location.reload();
-        this.cdr.detectChanges();
-      });
-  }
-
-  addSelectedExercise() {
-    if (!this.selectedExercise) return;
-
-    const payload = {
-      workoutId: this.workout.id,
-      exerciseId: this.selectedExercise.id ?? 0,
-      sets: 3,
-      reps: 10
-    };
-
-    this.http.post<WorkoutExercise>(
-      "https://localhost:7114/api/workoutexercise",
-      payload
-    ).subscribe(added => {
-
-      this.workout.workoutExercises.push(added);
-      this.selectedExercise = null;
-      this.exerciseSearch = "";
+      this.apiResults = results;
       this.cdr.detectChanges();
     });
   }
 
   selectExercise(ex: Exercise) {
-    this.form.exerciseId = ex.id;
-    this.selectedExercise = ex;
+    this.exersiceStore.selectedExercise = ex;
     this.apiResults = [];
+  }
+
+  get workoutId(): number | null {
+    return this.workoutStore.selectedWorkout?.id ?? null;
+  }
+
+  addExercise() {
+    if (this.form.invalid) return;
+
+    const result = Object.assign({}, this.form.value);
+
+      this.exersiceStore.selectedExercise = {
+      id: 0,
+      workoutId: this.workoutId!,
+      name: result.name,
+      primaryMuscle: result.primaryMuscle,
+      category: result.category,
+      exerciseSets: []
+      }
+
+    this.saveEvent.emit(this.exersiceStore.selectedExercise);
   }
 }

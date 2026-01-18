@@ -1,4 +1,5 @@
-<h2>Workouts</h2>
+<div *mobxAutorun class="container">
+  <h2>Workouts</h2>
 
 <button routerLink="/workouts/new" class="btn btn-primary">Add Workout</button>
 
@@ -12,13 +13,16 @@
   </thead>
 
   <tbody>
-    <tr *ngFor="let w of workouts">
-      <td>{{ w.date }}</td>
-      <td>{{ w.notes }}</td>
-      <td>
-        <button class="btn btn-sm btn-info" [routerLink]="['/workouts', w.id]">View</button>
-        <button class="btn btn-sm btn-danger" (click)="deleteWorkout(w.id)">Delete</button>
-      </td>
-    </tr>
+    @for (w of workouts; track w) {
+      <tr>
+        <td>{{ w.date }}</td>
+        <td>{{ w.notes }}</td>
+        <td>
+          <button class="btn btn-sm btn-info" [routerLink]="['/workouts', w.id]">View</button>
+          <button class="btn btn-sm btn-danger" (click)="deleteWorkout(w.id)">Delete</button>
+        </td>
+      </tr>
+    }
   </tbody>
 </table>
+</div>
